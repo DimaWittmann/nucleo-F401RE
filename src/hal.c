@@ -26,7 +26,7 @@ void initPeripherals(void) {
 }
 
 void logMessage(const char *fmt, ...) {
-	char buffer[256];
+	static char buffer[256];
 	memset(buffer, '\0', sizeof(buffer));
 
 	va_list args;

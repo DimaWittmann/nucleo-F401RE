@@ -101,6 +101,16 @@
 #include "philosophers.h"
 
 
+static void simpleTask()
+{
+	for(;;) {
+		HAL_GPIO_TogglePin(Led_GPIO_Port, Led_Pin); //Toggle LED
+
+		vTaskDelay(1000); //Delay 1 Seconds
+		logMessage("Hello!\n\r");
+	}
+}
+
 /**
   * @brief  The application entry point.
   * @retval int
@@ -109,12 +119,14 @@ int main(void)
 {
 	initPeripherals();
 
-	while(1) {
-		HAL_GPIO_TogglePin(Led_GPIO_Port, Led_Pin); //Toggle LED
+	logMessage("start\r\n");
 
-		HAL_Delay(1000); //Delay 1 Seconds
-		logMessage("Hello!\n\r");
-	}
+    xTaskCreate(simpleTask, "simpleTask", configMINIMAL_STACK_SIZE,
+                    NULL, configTIMER_TASK_PRIORITY, NULL);
+
+    vTaskStartScheduler();
+
+    return 0;
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)

@@ -167,6 +167,10 @@ void SysTick_Handler(void)
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
+  HAL_SYSTICK_IRQHandler();
+#ifdef USE_RTOS_SYSTICK
+  osSystickHandler();
+#endif
 
   /* USER CODE END SysTick_IRQn 1 */
 }
