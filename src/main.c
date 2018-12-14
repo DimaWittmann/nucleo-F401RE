@@ -68,75 +68,145 @@
     1 tab == 4 spaces!
 */
 
-/*
- * main() creates all the demo application tasks, then starts the scheduler.
- * The web documentation provides more details of the standard demo application
- * tasks, which provide no particular functionality but do provide a good
- * example of how to use the FreeRTOS API.
- *
- * In addition to the standard demo tasks, the following tasks and tests are
- * defined and/or created within this file:
- *
- * "Check" task - This only executes every five seconds but has a high priority
- * to ensure it gets processor time.  Its main function is to check that all the
- * standard demo tasks are still operational.  While no errors have been
- * discovered the check task will print out "OK" and the current simulated tick
- * time.  If an error is discovered in the execution of a task then the check
- * task will print out an appropriate error message.
- *
+/* Dining philosophers problem implementation
  */
 
 /* Standard includes. */
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "FreeRTOS.h"
-#include "task.h"
-#include "stm32f4xx.h"
-#include "stm32f4xx_nucleo.h"
-#include "stm32f4xx_hal_def.h"
-#include "stm32f4xx_hal_uart.h"
-
-#include "main.h"
 #include "philosophers.h"
 
+#define mainTIMER_DELAY (1000UL)
 
-static void simpleTask()
+static void philosopherTask(void *pvParameters);
+static void supervisorTask(void *pvParameters);
+
+static struct Philosopher philosophers[philoPHILOSOPHERS_NUMBER];
+static struct FSMState states[STATE_MAX];
+static struct Chopstick chopsticks[philoPHILOSOPHERS_NUMBER] = {{0, 1},
+								{1, 1},
+								{2, 1},
+								{3, 1},
+								{4, 1}};
+
+/*-----------------------------------------------------------*/
+
+int main(void)
 {
-	for(;;) {
-		HAL_GPIO_TogglePin(Led_GPIO_Port, Led_Pin); //Toggle LED
+	TaskHandle_t clearTaskHandle;
 
-		vTaskDelay(1000); //Delay 1 Seconds
-		logMessage("Hello!\n\r");
+	initPeripherals();
+
+	xTaskCreate(supervisorTask, "supervisor", configMINIMAL_STACK_SIZE,
+		    philosophers, philoCHECK_TASK_PRIORITY + 5,
+		    &clearTaskHandle);
+
+	initPhilosophers();
+
+	vTaskStartScheduler();
+
+	deinitPhilosophers();
+	vTaskDelete(clearTaskHandle);
+
+	return 0;
+}
+
+/*
+ * Task print philosopher statistic every mainTIMER_DELAY miliseconds
+ */
+static void supervisorTask(void *pvParameters)
+{
+	const TickType_t xCycleFrequency = pdMS_TO_TICKS(mainTIMER_DELAY);
+	TickType_t xNextWakeTime = xTaskGetTickCount();
+	struct Philosopher *xPhilosophers = (struct Philosopher *)pvParameters;
+
+	for (;;) {
+		uint i;
+
+		vTaskDelayUntil(&xNextWakeTime, xCycleFrequency);
+		clearScreen();
+		logMessage("\n\r");
+
+		taskENTER_CRITICAL();
+		for (i = 0; i < philoPHILOSOPHERS_NUMBER; ++i) {
+			logMessage("philosopher %u ate %u in %u \n\r",
+			       xPhilosophers[i].id, xPhilosophers[i].ate,
+			       xPhilosophers[i].cycles);
+		}
+
+		logMessage("\n\r");
+		for (i = 0; i < philoPHILOSOPHERS_NUMBER; ++i) {
+			if (xPhilosophers[i].hasRightChopstick) {
+				logMessage("philosopher %u has right chopstick\n\r",
+				       xPhilosophers[i].id);
+			} else if (checkRightChopstick(&xPhilosophers[i])) {
+				logMessage("philosopher %u right is available\r\n",
+				       xPhilosophers[i].id);
+			}
+
+			if (xPhilosophers[i].hasLeftChopstick) {
+				logMessage("philosopher %u has left chopstick\n\r",
+				       xPhilosophers[i].id);
+			} else if (checkLeftChopstick(&xPhilosophers[i])) {
+				logMessage("philosopher %u left is available\r\n",
+				       xPhilosophers[i].id);
+			}
+		}
+		taskEXIT_CRITICAL();
 	}
 }
 
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
-int main(void)
+/*
+ * Philosopher FSM entry point
+ */
+static void philosopherTask(void *pvParameters)
 {
-	initPeripherals();
-
-	logMessage("start\r\n");
-
-    xTaskCreate(simpleTask, "simpleTask", configMINIMAL_STACK_SIZE,
-                    NULL, configTIMER_TASK_PRIORITY, NULL);
-
-    vTaskStartScheduler();
-
-    return 0;
+	struct Philosopher *xPhilosopher = (struct Philosopher *)pvParameters;
+	for (;;) {
+		FSMNextStep(xPhilosopher, states);
+	}
+	vTaskSuspend(NULL);
 }
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+/*
+ * Creates tasks that implements philosophers and initialize FSM states.
+ */
+void initPhilosophers(void)
 {
-	logMessage("Button press!!!\n\r");
+	uint i = 0;
+
+	for (i = 0; i < philoPHILOSOPHERS_NUMBER; ++i) {
+		philosophers[i].id = i;
+		philosophers[i].state = THINKING;
+		philosophers[i].chopsticks = chopsticks;
+		xTaskCreate(philosopherTask, "philosopherTask", configMINIMAL_STACK_SIZE,
+			    &philosophers[i], philoCHECK_TASK_PRIORITY,
+			    &(philosophers[i].taskHandle));
+	}
+
+	FSMInit(states, philosophers);
 }
 
+void deinitPhilosophers(void)
+{
+	uint i = 0;
+
+	for (i = 0; i < philoPHILOSOPHERS_NUMBER; ++i) {
+		vTaskDelete(philosophers[i].taskHandle);
+	}
+}
+
+/*-----------------------------------------------------------*/
 
 void vAssertCalled(unsigned long ulLine, const char *const pcFileName)
 {
+	taskENTER_CRITICAL();
+	{
+		printf("[ASSERT] %s:%lu\n", pcFileName, ulLine);
+		fflush(stdout);
+	}
+	taskEXIT_CRITICAL();
 	exit(-1);
 }
 /*-----------------------------------------------------------*/

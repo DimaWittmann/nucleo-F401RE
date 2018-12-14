@@ -7,6 +7,8 @@
 #include "stm32f4xx_hal_uart.h"
 
 #include "main.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 UART_HandleTypeDef huart6;
 
@@ -25,8 +27,12 @@ void initPeripherals(void) {
 	MX_USART6_UART_Init();
 }
 
+/**
+ * This function is not task safe
+ */
 void logMessage(const char *fmt, ...) {
-	static char buffer[256];
+	static char buffer[128];
+
 	memset(buffer, '\0', sizeof(buffer));
 
 	va_list args;
@@ -35,6 +41,12 @@ void logMessage(const char *fmt, ...) {
 	va_end(args);
 
 	uartPrintf(buffer, strnlen(buffer, sizeof(buffer)));
+}
+
+void clearScreen(void)
+{
+	char *cls = "\033[2J";
+	logMessage(cls, strlen(cls));
 }
 
 static void uartPrintf(char* buffer, uint32_t buffer_size) {

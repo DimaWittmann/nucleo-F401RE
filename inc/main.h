@@ -75,6 +75,17 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 void initPeripherals(void);
+
+/**
+ * This function is not task safe
+ */
+void logMessage(const char *fmt, ...);
+#if (0 == 1)
+# define logDebugMessage(fmt, ...) logMessage(fmt, ##__VA_ARGS__)
+#else
+# define logDebugMessage(fmt, ...)
+#endif
+void clearScreen(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

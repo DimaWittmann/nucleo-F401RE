@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
@@ -11,7 +12,7 @@
 
 
 struct Chopstick {
-	unsigned int id;
+	uint id;
 	bool available;
 };
 
@@ -24,13 +25,13 @@ enum State {
 };
 
 struct Philosopher {
-	unsigned int id;
+	uint id;
 	enum State state;
 	struct Chopstick *chopsticks;
 	bool hasLeftChopstick;
 	bool hasRightChopstick;
-	unsigned int ate;
-	unsigned int cycles;
+	uint ate;
+	uint cycles;
 	TaskHandle_t taskHandle;
 };
 
@@ -50,8 +51,6 @@ void putLeftChopstick(struct Philosopher *p);
 void putRightChopstick(struct Philosopher *p);
 
 const char *stateToChar(enum State);
-
-void logMessage(const char *fmt, ...);
 
 void initPhilosophers(void);
 void deinitPhilosophers(void);
